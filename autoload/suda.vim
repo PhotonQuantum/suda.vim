@@ -15,7 +15,8 @@ function! suda#init(...) abort
 endfunction
 
 function! suda#system(cmd, ...) abort
-  let cmd = printf('sudo -p '''' -n %s', a:cmd)
+  let cmd = printf('sudo -p '''' %s', a:cmd)
+  echomsg 'Waiting for Yubikey...'
   if &verbose
     echomsg '[suda]' cmd
   endif
@@ -23,14 +24,7 @@ function! suda#system(cmd, ...) abort
   if v:shell_error == 0
     return result
   endif
-  try
-    call inputsave()
-    redraw | let password = inputsecret('Password: ')
-  finally
-    call inputrestore()
-  endtry
-  let cmd = printf('sudo -p '''' -S %s', a:cmd)
-  return system(cmd, password . "\n" . (a:0 ? a:1 : ''))
+  echomsg 'Failed!'
 endfunction
 
 function! suda#read(expr, ...) abort range
@@ -40,16 +34,6 @@ function! suda#read(expr, ...) abort range
         \ 'range': '',
         \}, a:0 ? a:1 : {}
         \)
-
-  if filereadable(path)
-    return substitute(execute(printf(
-          \ '%sread %s %s',
-          \ options.range,
-          \ options.cmdarg,
-          \ path,
-          \)), '^\r\?\n', '', '')
-  endif
-
   let tempfile = tempname()
   try
     let redirect = &shellredir =~# '%s'
@@ -127,8 +111,6 @@ endfunction
 
 function! suda#BufReadCmd() abort
   call s:doautocmd('BufReadPre')
-  let ul = &undolevels
-  set undolevels=-1
   try
     let echo_message = suda#read('<afile>', {
           \ 'range': '1',
@@ -139,7 +121,6 @@ function! suda#BufReadCmd() abort
     filetype detect
     redraw | echo echo_message
   finally
-    let &undolevels = ul
     call s:doautocmd('BufReadPost')
   endtry
 endfunction
